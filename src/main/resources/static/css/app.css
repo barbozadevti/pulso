@@ -20,6 +20,7 @@
   --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35); }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--tinta); font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
 body.sem-rolagem { overflow: hidden; }
@@ -84,7 +85,7 @@ a:hover { text-decoration: underline; }
 .cartao > header p { font-size: .82rem; color: var(--tinta-3); }
 .grade-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .grade-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.grade-12 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.grade-12 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: start; }
 .pilha { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 @media (max-width: 899px) { .grade-2, .grade-3, .grade-12 { grid-template-columns: 1fr; } }
 
@@ -167,6 +168,9 @@ a.item:hover { background: var(--superficie-2); text-decoration: none; border-ra
 /* ---------- risco ---------- */
 .risco { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .8rem; padding: 3px 10px; border-radius: 99px; }
 .risco.ALTO { background: var(--critico-fundo); color: var(--critico); } .risco.MEDIO { background: var(--atencao-fundo); color: var(--atencao); } .risco.BAIXO { background: var(--ok-fundo); color: var(--ok); }
+.tendencia { font-weight: 800; }
+.contato-linha { display: block; margin-top: 6px; }
+.kpi.bom .valor { color: var(--ok); }
 .fatores { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .fatores .selo { font-weight: 600; white-space: normal; }
 
 /* ---------- ficha ---------- */

@@ -59,6 +59,21 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
             """)
     List<PorPlano> ativasPorPlano();
 
+    /** Receita recorrente de uma data passada (matrículas vigentes naquele dia), para a tendência do painel. */
+    @Query("""
+            select coalesce(sum(p.valorMensal), 0) from Matricula m join m.plano p
+            where m.inicio <= :data and (m.fim is null or m.fim > :data) and m.status <> 'TRANCADA'
+              and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)
+            """)
+    BigDecimal receitaEm(@Param("data") LocalDate data, @Param("unidadeId") Long unidadeId);
+
+    @Query("""
+            select count(m) from Matricula m
+            where m.inicio <= :data and (m.fim is null or m.fim > :data) and m.status <> 'TRANCADA'
+              and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)
+            """)
+    long ativasEm(@Param("data") LocalDate data, @Param("unidadeId") Long unidadeId);
+
     long countByInicioGreaterThanEqual(LocalDate desde);
 
     long countByStatusAndFimGreaterThanEqual(StatusMatricula status, LocalDate desde);

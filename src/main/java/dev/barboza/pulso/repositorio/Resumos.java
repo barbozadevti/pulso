@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import dev.barboza.pulso.dominio.ResultadoDoContato;
+
 /** Projeções para DTO: o Hibernate monta o record direto do SELECT, sem carregar entidades. */
 public final class Resumos {
 
@@ -11,6 +13,9 @@ public final class Resumos {
     }
 
     public record Frequencia(Long alunoId, LocalDateTime ultimaVisita, long ultimas2Semanas, long duasSemanasAntes) {
+    }
+
+    public record UltimoContato(Long alunoId, LocalDateTime feitoEm, ResultadoDoContato resultado) {
     }
 
     public record Atraso(Long alunoId, LocalDate vencimentoMaisAntigo) {

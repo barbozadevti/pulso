@@ -60,6 +60,17 @@ public class GestaoController {
         return risco.ranking(unidadeId).stream().filter(r -> nivel == null || r.nivel() == nivel).toList();
     }
 
+    @GetMapping(value = "/risco.csv", produces = "text/csv")
+    @Operation(summary = "Lista de risco em CSV (Excel em português: separador ponto e vírgula, com BOM)")
+    org.springframework.http.ResponseEntity<byte[]> riscoCsv(@RequestParam(required = false) Long unidadeId,
+            @RequestParam(required = false) Nivel nivel) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"risco-de-evasao.csv\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(RiscoCsv.gerar(risco.ranking(unidadeId).stream()
+                        .filter(r -> nivel == null || r.nivel() == nivel).toList()));
+    }
+
     @GetMapping("/unidades")
     List<UnidadeRef> unidades() {
         return referencia.unidades();

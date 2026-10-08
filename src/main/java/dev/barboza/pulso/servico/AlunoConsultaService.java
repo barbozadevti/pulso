@@ -17,10 +17,12 @@ import dev.barboza.pulso.dominio.Aluno;
 import dev.barboza.pulso.dominio.Matricula;
 import dev.barboza.pulso.dominio.StatusMatricula;
 import dev.barboza.pulso.repositorio.AcessoRepository;
+import dev.barboza.pulso.repositorio.ContatoRepository;
 import dev.barboza.pulso.repositorio.MatriculaRepository;
 import dev.barboza.pulso.repositorio.MensalidadeRepository;
 import dev.barboza.pulso.repositorio.ReservaRepository;
 import dev.barboza.pulso.servico.Visoes.AvaliacaoVisao;
+import dev.barboza.pulso.servico.Visoes.ContatoVisao;
 import dev.barboza.pulso.servico.Visoes.Ficha;
 import dev.barboza.pulso.servico.Visoes.FrequenciaVisao;
 import dev.barboza.pulso.servico.Visoes.MatriculaVisao;
@@ -40,17 +42,19 @@ public class AlunoConsultaService {
     private final AcessoRepository acessos;
     private final ReservaRepository reservas;
     private final RiscoService risco;
+    private final ContatoRepository contatos;
     private final Clock relogio;
 
     public AlunoConsultaService(AlunoService alunos, MatriculaRepository matriculas,
             MensalidadeRepository mensalidades, AcessoRepository acessos, ReservaRepository reservas,
-            RiscoService risco, Clock relogio) {
+            RiscoService risco, ContatoRepository contatos, Clock relogio) {
         this.alunos = alunos;
         this.matriculas = matriculas;
         this.mensalidades = mensalidades;
         this.acessos = acessos;
         this.reservas = reservas;
         this.risco = risco;
+        this.contatos = contatos;
         this.relogio = relogio;
     }
 
@@ -64,7 +68,7 @@ public class AlunoConsultaService {
                     .forEach(m -> vigentes.put(m.getAluno().getId(), m));
         }
         LocalDate hoje = LocalDate.now(relogio);
-        return pag.map(a -> resumo(a, vigentes.get(a.getId()), hoje));
+        return pag.map(a -> mascarar(resumo(a, vigentes.get(a.getId()), hoje)));
     }
 
     public Ficha ficha(Long id) {
@@ -98,7 +102,10 @@ public class AlunoConsultaService {
                 .toList();
 
         return new Ficha(resumo(a, vigente, hoje), a.getNascimento(), mats, cobrancas, avaliacoes,
-                frequencia(id, agora), risco(id, vigente), futuras);
+                frequencia(id, agora), risco(id, vigente), futuras,
+                contatos.findByAlunoIdOrderByFeitoEmDesc(id).stream().map(c -> new ContatoVisao(c.getId(),
+                        c.getCanal().name(), c.getResultado().name(), c.getObservacao(), c.getFeitoEm(),
+                        c.getRiscoNaEpoca())).toList());
     }
 
     private FrequenciaVisao frequencia(Long alunoId, LocalDateTime agora) {
@@ -120,6 +127,14 @@ public class AlunoConsultaService {
         }
         var r = risco.deAluno(alunoId, vigente.getInicio());
         return new RiscoVisao(r.pontos(), r.nivel().name(), r.fatores());
+    }
+
+    /** LGPD: listas mostram só os dígitos do meio do CPF. O número completo fica na ficha do aluno. */
+    private static ResumoDoAluno mascarar(ResumoDoAluno r) {
+        String cpf = r.cpf() == null || r.cpf().length() < 14 ? r.cpf()
+                : "***." + r.cpf().substring(4, 11) + "-**";
+        return new ResumoDoAluno(r.id(), r.nome(), cpf, r.email(), r.bairro(), r.cidade(), r.uf(), r.unidadeId(),
+                r.unidade(), r.situacao(), r.plano(), r.idade());
     }
 
     private static ResumoDoAluno resumo(Aluno a, Matricula m, LocalDate hoje) {

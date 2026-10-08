@@ -3,6 +3,7 @@ import { h, icone, limpar, reais, reaisInteiros, compacto, numero, pct, esquelet
 import { api, consulta } from './api.js';
 import { estado } from './estado.js';
 import { barrasPorMes, mapaDeCalor, barrasHorizontais } from './charts.js';
+import { RESULTADOS } from './contato.js';
 
 export async function renderizar(raiz) {
   let temporizador;
@@ -29,17 +30,20 @@ export async function renderizar(raiz) {
 
       h('section', { class: 'kpis', 'aria-label': 'Indicadores' },
         h('div', { class: 'kpi destaque' }, h('span', { class: 'rotulo' }, 'Receita recorrente (MRR)'),
-          h('span', { class: 'valor' }, compacto(k.receitaRecorrente)), h('span', { class: 'nota' }, `${numero(k.ativos)} alunos ativos`)),
+          h('span', { class: 'valor' }, compacto(k.receitaRecorrente)),
+          h('span', { class: 'nota' }, tendencia(k.variacaoReceitaPercentual), ` · ${numero(k.ativos)} alunos ativos`)),
         h('a', { class: 'kpi alerta link', href: '#/risco', style: 'text-decoration:none;color:inherit' },
           h('span', { class: 'rotulo' }, 'Receita em risco'), h('span', { class: 'valor' }, compacto(p.receitaEmRisco)),
           h('span', { class: 'nota' }, `${p.alunosEmRiscoAlto} alunos com risco alto de evasão →`)),
         kpi('Inadimplência', compacto(k.valorEmAtraso), `${pct(k.inadimplenciaPercentual)} do MRR · ${k.inadimplentes} alunos`,
           k.inadimplenciaPercentual > 6 ? 'alerta' : ''),
         kpi('Cancelamentos (30 dias)', pct(k.churnPercentual), `${k.cancelamentos30Dias} cancelaram · ${k.novos30Dias} novos`),
+        kpi('Retenção (30 dias)', k.alunosRecuperados ? compacto(k.receitaRecuperada) : '—',
+          k.alunosRecuperados ? `${k.alunosRecuperados} alunos voltaram a treinar · ${k.contatos7Dias} contatos na semana` : `${k.contatos7Dias} contatos na semana`, k.alunosRecuperados ? 'bom' : ''),
         kpi('Na academia agora', numero(k.dentroAgora), `${ocupacao}% da capacidade · ${numero(k.visitasHoje)} entradas hoje`)),
 
       h('div', { class: 'grade-12' },
-        h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Receita por mês'), h('p', {}, 'últimos 6 meses')),
+        h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Receita por mês'), h('p', {}, 'últimos 6 meses · o mês atual ainda está sendo recebido')),
           legenda([['s1', 'Faturado'], ['s3', 'Recebido']]), barrasPorMes(p.receita)),
         h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, unidade ? 'Unidade' : 'Unidades'), h('p', {}, 'receita e lotação agora')),
           h('div', { class: 'lista' }, p.unidades.filter((u) => !estado.unidadeId || String(u.id) === estado.unidadeId).map(linhaDeUnidade)))),
@@ -91,8 +95,18 @@ export function linhaDeRisco(a) {
   return h('a', { class: 'item risco-item', href: `#/alunos/${a.alunoId}` },
     h('span', { class: 'avatar' }, a.nome.split(' ').slice(0, 2).map((x) => x[0]).join('')),
     h('span', { class: 'corpo' }, h('strong', {}, a.nome), h('span', {}, `${a.unidade.replace('Pulso ', '')} · ${a.plano} · ${reais(a.valorMensal)}`),
-      h('span', { class: 'fatores' }, a.fatores.map((f) => h('span', { class: 'selo' }, f)))),
+      h('span', { class: 'fatores' }, a.fatores.map((f) => h('span', { class: 'selo' }, f))),
+      h('span', { class: 'contato-linha' }, a.diasDesdeContato == null
+        ? h('span', { class: 'selo critico' }, 'Ninguém entrou em contato ainda')
+        : h('span', { class: 'selo ' + (RESULTADOS[a.ultimoResultado]?.[0] || '') }, `Contato há ${a.diasDesdeContato === 0 ? 'menos de 1 dia' : a.diasDesdeContato + ' d'} · ${RESULTADOS[a.ultimoResultado]?.[1] || ''}`))),
     h('span', { class: 'fim' }, h('span', { class: 'risco ' + a.nivel }, icone(a.nivel === 'ALTO' ? 'alerta' : 'risco', 14), `${a.pontos} · ${rotuloNivel(a.nivel)}`)));
+}
+
+/** Seta e variação da receita contra 30 dias atrás. */
+function tendencia(v) {
+  const n = Number(v) || 0;
+  const seta = n > 0.05 ? '▲' : n < -0.05 ? '▼' : '■';
+  return h('b', { class: 'tendencia' }, `${seta} ${n > 0 ? '+' : ''}${n.toFixed(1).replace('.', ',')}% em 30 dias`);
 }
 
 export const rotuloNivel = (n) => ({ ALTO: 'Alto', MEDIO: 'Médio', BAIXO: 'Baixo' }[n] || n);

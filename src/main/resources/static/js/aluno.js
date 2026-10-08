@@ -3,6 +3,7 @@ import { h, icone, limpar, reais, data, dataCurta, dataHora, iniciais, modal, to
 import { api, referencias } from './api.js';
 import { barrasSemanais, linha } from './charts.js';
 import { rotuloNivel } from './painel.js';
+import { registrarContato, CANAIS, RESULTADOS } from './contato.js';
 
 export async function renderizar(raiz, { id }) {
   async function carregar() {
@@ -17,7 +18,7 @@ export async function renderizar(raiz, { id }) {
       h('a', { class: 'botao pequeno', href: '#/alunos', style: 'margin-bottom:14px;display:inline-flex' }, icone('voltar', 16), 'Alunos'),
       cabecalho(f, vigente),
       h('div', { class: 'grade-2', style: 'margin-top:16px' },
-        h('div', { class: 'pilha' }, blocoRisco(f.risco, vigente), blocoFrequencia(f.frequencia), blocoReservas(f.reservas)),
+        h('div', { class: 'pilha' }, blocoRisco(f.risco, vigente), blocoRetencao(f), blocoFrequencia(f.frequencia), blocoReservas(f.reservas)),
         h('div', { class: 'pilha' }, blocoCobrancas(f.mensalidades), blocoMatriculas(f.matriculas))),
       blocoAvaliacoes(f.avaliacoes));
   }
@@ -89,6 +90,17 @@ export async function renderizar(raiz, { id }) {
     if (!r) return h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Risco de evasão')), h('p', { class: 'mudo' }, 'Matrícula trancada: sem avaliação de risco.'));
     return h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Risco de evasão'), h('span', { class: 'risco ' + r.nivel }, `${r.pontos} · ${rotuloNivel(r.nivel)}`)),
       r.fatores.length ? h('div', { class: 'fatores' }, r.fatores.map((x) => h('span', { class: 'selo' }, x))) : h('p', { class: 'suave' }, 'Frequência e pagamentos em dia. Nenhum sinal de risco.'));
+  }
+
+  function blocoRetencao(f) {
+    return h('section', { class: 'cartao' },
+      h('header', {}, h('h2', {}, 'Retenção'), h('button', { class: 'botao pequeno primario', type: 'button',
+        onclick: () => registrarContato({ alunoId: id, nome: f.aluno.nome, aoSalvar: carregar }) }, icone('mais', 16), 'Registrar contato')),
+      f.contatos.length ? h('div', { class: 'lista' }, f.contatos.map((c) => h('div', { class: 'item' },
+        h('span', { class: 'corpo' }, h('strong', {}, `${CANAIS[c.canal]} · ${dataHora(c.feitoEm)}`),
+          h('span', {}, `${c.observacao ? c.observacao + ' · ' : ''}risco na época: ${c.riscoNaEpoca}`)),
+        h('span', { class: 'selo ' + RESULTADOS[c.resultado][0] }, RESULTADOS[c.resultado][1]))))
+        : h('p', { class: 'mudo' }, 'Nenhum contato registrado.'));
   }
 
   function blocoFrequencia(fr) {

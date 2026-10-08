@@ -12,7 +12,9 @@ export async function renderizar(raiz) {
     unidades.map((u) => h('option', { value: u.id, selected: String(u.id) === unidadeId }, u.nome.replace('Pulso ', ''))));
   seletor.addEventListener('change', () => { unidadeId = seletor.value; atualizarAoVivo(); });
 
+  let escolhido = null; // aluno tocado nas sugestões (as listas mostram o CPF mascarado)
   const cpf = h('input', { class: 'entrada', placeholder: 'CPF do aluno', inputmode: 'numeric', autocomplete: 'off', 'aria-label': 'CPF do aluno' });
+  cpf.addEventListener('input', () => { escolhido = null; });
   const visor = h('div', { class: 'visor', 'aria-live': 'polite' }, icone('catraca', 44), h('strong', {}, 'Aguardando'), h('span', { class: 'suave' }, 'Digite o CPF ou escolha um aluno abaixo.'));
   const sugestoes = h('div', { class: 'sugestoes' });
   const aoVivo = h('div', { class: 'cartao' }, esqueleto(3));
@@ -28,14 +30,17 @@ export async function renderizar(raiz) {
     if (!texto) { cpf.focus(); return; }
     try {
       let d;
-      if (entrada) d = await api.post('/api/catraca/entrada', { cpf: texto, unidadeId: Number(unidadeId) });
+      if (escolhido) {
+        d = entrada ? await api.post('/api/catraca/entrada', { alunoId: escolhido, unidadeId: Number(unidadeId) })
+          : await api.post('/api/catraca/saida', { alunoId: escolhido });
+      } else if (entrada) d = await api.post('/api/catraca/entrada', { cpf: texto, unidadeId: Number(unidadeId) });
       else {
         const a = await api.get(`/api/alunos?busca=${encodeURIComponent(texto)}&tamanho=1`);
         if (!a.conteudo.length) throw new Error('Nenhum aluno com esse CPF.');
         d = await api.post('/api/catraca/saida', { alunoId: a.conteudo[0].id });
       }
       mostrar(d, entrada);
-      if (d.liberado) cpf.value = '';
+      if (d.liberado) { cpf.value = ''; escolhido = null; }
       atualizarAoVivo();
     } catch (e) { mostrar({ liberado: false, motivo: e.message }, entrada); }
   }
@@ -60,7 +65,7 @@ export async function renderizar(raiz) {
   async function sugerir() {
     try {
       const a = await api.get(`/api/alunos?situacao=ATIVA&unidadeId=${unidadeId}&tamanho=6`);
-      limpar(sugestoes).append(...a.conteudo.map((x) => h('button', { class: 'botao pequeno', type: 'button', onclick: () => { cpf.value = x.cpf; cpf.focus(); } }, x.nome.split(' ').slice(0, 2).join(' '))));
+      limpar(sugestoes).append(...a.conteudo.map((x) => h('button', { class: 'botao pequeno', type: 'button', onclick: () => { cpf.value = x.nome; escolhido = x.id; cpf.focus(); } }, x.nome.split(' ').slice(0, 2).join(' '))));
     } catch { /* sugestões são opcionais */ }
   }
   seletor.addEventListener('change', sugerir);

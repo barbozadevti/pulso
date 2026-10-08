@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import dev.barboza.pulso.dominio.StatusMatricula;
 import dev.barboza.pulso.dominio.Unidade;
+import dev.barboza.pulso.dominio.Matricula;
 import dev.barboza.pulso.repositorio.AcessoRepository;
+import dev.barboza.pulso.repositorio.ContatoRepository;
 import dev.barboza.pulso.repositorio.MatriculaRepository;
 import dev.barboza.pulso.repositorio.MensalidadeRepository;
 import dev.barboza.pulso.repositorio.Resumos.PorMes;
@@ -33,7 +35,9 @@ public class PainelService {
 
     public record Kpis(long ativos, long trancadas, BigDecimal receitaRecorrente, long novos30Dias,
             long cancelamentos30Dias, double churnPercentual, long inadimplentes, BigDecimal valorEmAtraso,
-            double inadimplenciaPercentual, long visitasHoje, long dentroAgora, long capacidadeTotal) {
+            double inadimplenciaPercentual, long visitasHoje, long dentroAgora, long capacidadeTotal,
+            double variacaoReceitaPercentual, long ativosHa30Dias, long contatos7Dias, long alunosRecuperados,
+            BigDecimal receitaRecuperada) {
     }
 
     public record UnidadeVisao(Long id, String nome, String cidade, String uf, long ativos, BigDecimal receita,
@@ -59,16 +63,19 @@ public class PainelService {
     private final MensalidadeRepository mensalidades;
     private final AcessoRepository acessos;
     private final UnidadeRepository unidades;
+    private final ContatoRepository contatos;
     private final RiscoService risco;
     private final ReservaService reservas;
     private final Clock relogio;
 
     public PainelService(MatriculaRepository matriculas, MensalidadeRepository mensalidades, AcessoRepository acessos,
-            UnidadeRepository unidades, RiscoService risco, ReservaService reservas, Clock relogio) {
+            UnidadeRepository unidades, ContatoRepository contatos, RiscoService risco, ReservaService reservas,
+            Clock relogio) {
         this.matriculas = matriculas;
         this.mensalidades = mensalidades;
         this.acessos = acessos;
         this.unidades = unidades;
+        this.contatos = contatos;
         this.risco = risco;
         this.reservas = reservas;
         this.relogio = relogio;
@@ -107,12 +114,20 @@ public class PainelService {
         long dentroAgora = escopo.stream().mapToLong(UnidadeVisao::dentro).sum();
         long capacidade = escopo.stream().mapToLong(UnidadeVisao::capacidade).sum();
 
+        List<Long> voltaram = contatos.alunosQueVoltaram(agora.minusDays(30), unidadeId);
+        List<Matricula> recuperados = voltaram.isEmpty() ? List.of()
+                : matriculas.vigentesDosAlunos(voltaram).stream().filter(Matricula::ativa).toList();
+        BigDecimal receitaRecuperada = recuperados.stream().map(m -> m.getPlano().getValorMensal())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         Kpis kpis = new Kpis(ativosRede, matriculas.countByStatus(StatusMatricula.TRANCADA), mrr,
                 matriculas.countByInicioGreaterThanEqual(hoje.minusDays(30)), cancelados,
                 percentual(cancelados, ativosRede + cancelados), mensalidades.alunosInadimplentes(hoje), atraso,
                 mrr.signum() == 0 ? 0 : atraso.multiply(BigDecimal.valueOf(100)).divide(mrr, 1, RoundingMode.HALF_UP)
                         .doubleValue(),
-                acessos.entradasDesde(hoje.atStartOfDay()), dentroAgora, capacidade);
+                acessos.entradasDesde(hoje.atStartOfDay()), dentroAgora, capacidade, variacao(unidadeId, hoje),
+                matriculas.ativasEm(hoje.minusDays(30), unidadeId), contatos.contatosDesde(agora.minusDays(7), unidadeId),
+                recuperados.size(), receitaRecuperada);
 
         List<AlunoEmRisco> altos = rankingEscopo.stream().filter(r -> r.nivel() == Nivel.ALTO).toList();
         BigDecimal receitaEmRisco = altos.stream().map(AlunoEmRisco::valorMensal).reduce(BigDecimal.ZERO,
@@ -130,6 +145,14 @@ public class PainelService {
         return new Painel(agora, kpis, visoes, planos, receita, mapaDeCalor(agora.minusDays(28), unidadeId),
                 rankingEscopo.stream().limit(8).toList(), receitaEmRisco, altos.size(),
                 reservas.conflitosResolvidos());
+    }
+
+    /** Variação da receita recorrente contra 30 dias atrás, com a mesma regra nos dois lados. */
+    private double variacao(Long unidadeId, LocalDate hoje) {
+        BigDecimal agora = matriculas.receitaEm(hoje, unidadeId);
+        BigDecimal antes = matriculas.receitaEm(hoje.minusDays(30), unidadeId);
+        return antes.signum() == 0 ? 0 : agora.subtract(antes).multiply(BigDecimal.valueOf(100))
+                .divide(antes, 1, RoundingMode.HALF_UP).doubleValue();
     }
 
     private Mapa mapaDeCalor(LocalDateTime desde, Long unidadeId) {

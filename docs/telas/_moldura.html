@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>moldura (só para prints)</title>
+<style>html,body{margin:0;background:#0b0d14}iframe{border:0;display:block}</style></head>
+<body><script>
+const q = new URLSearchParams(location.search);
+try { localStorage.setItem('pulso.tema', q.get('tema') || 'claro'); } catch (e) {}
+const f = document.createElement('iframe');
+f.width = q.get('w') || 390; f.height = q.get('h') || 844;
+f.src = '/#/' + (q.get('rota') || 'painel');
+document.body.append(f);
+</script></body></html>

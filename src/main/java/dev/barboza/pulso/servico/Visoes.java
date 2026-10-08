@@ -39,8 +39,12 @@ public final class Visoes {
             LocalDateTime inicio, String status) {
     }
 
+    public record ContatoVisao(Long id, String canal, String resultado, String observacao, LocalDateTime feitoEm,
+            int riscoNaEpoca) {
+    }
+
     public record Ficha(ResumoDoAluno aluno, LocalDate nascimento, List<MatriculaVisao> matriculas,
             List<MensalidadeVisao> mensalidades, List<AvaliacaoVisao> avaliacoes, FrequenciaVisao frequencia,
-            RiscoVisao risco, List<ReservaVisao> reservas) {
+            RiscoVisao risco, List<ReservaVisao> reservas, List<ContatoVisao> contatos) {
     }
 }

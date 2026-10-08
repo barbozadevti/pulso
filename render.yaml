@@ -1,0 +1,17 @@
+# Demo online no Render (plano gratuito): New > Blueprint > aponte para este repositório.
+# O banco é H2 em memória: a rede de demonstração (246 alunos e 6 meses de história) é recriada a cada início.
+services:
+  - type: web
+    name: pulso
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "5310"
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:h2:mem:pulso;DB_CLOSE_DELAY=-1
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: framework
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx380m

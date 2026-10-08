@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 
+import dev.barboza.pulso.dominio.CanalDeContato;
+import dev.barboza.pulso.dominio.ResultadoDoContato;
 import dev.barboza.pulso.servico.MatriculaService.Forma;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -40,6 +42,10 @@ public final class Dtos {
             @NotNull @DecimalMin("0.50") @DecimalMax("2.50") BigDecimal altura,
             @DecimalMin("2.0") @DecimalMax("70.0") BigDecimal percentualGordura,
             @DecimalMin("30.0") @DecimalMax("250.0") BigDecimal cinturaCm) {
+    }
+
+    public record ContatoEntrada(@NotNull CanalDeContato canal, @NotNull ResultadoDoContato resultado,
+            @Size(max = 200) String observacao) {
     }
 
     public record MatriculaEntrada(@NotNull Long alunoId, @NotNull Long planoId) {

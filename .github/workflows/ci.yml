@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes-h2:
+    name: Testes (H2) e teste de fumaça
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Testes e empacotamento
+        run: mvn -B verify
+      - name: Teste de fumaça do jar (site, API e painel)
+        run: |
+          java -jar target/pulso.jar --spring.datasource.url=jdbc:h2:mem:fumaca --pulso.simulador=false &
+          for i in $(seq 1 120); do curl -sf http://localhost:5310/health && break; sleep 1; done
+          curl -sf http://localhost:5310/ | grep -q "<title>Pulso</title>"
+          curl -sf http://localhost:5310/v3/api-docs | grep -q "Pulso"
+          curl -sf http://localhost:5310/api/painel | grep -q "receitaRecorrente"
+          curl -sf http://localhost:5310/api/laboratorio/n-mais-um | grep -q "INGENUO"

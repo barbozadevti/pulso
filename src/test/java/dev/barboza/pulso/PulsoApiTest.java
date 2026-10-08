@@ -246,13 +246,14 @@ class PulsoApiTest {
         long casa = unidade(0);
         long id = alunoMatriculado("390.533.447-05", casa, "Rede");
         em.flush(); // a mensalidade ainda está na fila do Hibernate; o JDBC puro só enxerga o que já foi ao banco
-        jdbc.update("update mensalidade set vencimento = DATEADD('DAY', -20, DATE '2026-10-07') where matricula_id in (select id from matricula where aluno_id = ?)", id);
+        jdbc.update("update mensalidade set vencimento = ? where matricula_id in (select id from matricula where aluno_id = ?)",
+                java.sql.Date.valueOf("2026-09-17"), id); // 20 dias antes de 7/10
         JsonNode r = enviar("/api/catraca/entrada", "{\"alunoId\":" + id + ",\"unidadeId\":" + casa + "}", 200);
         assertThat(r.get("liberado").asBoolean()).isFalse();
         assertThat(r.get("motivo").asText()).contains("vencida há 20 dias");
 
         long mat = ler("/api/alunos/" + id).get("matriculas").get(0).get("id").asLong();
-        jdbc.update("update mensalidade set vencimento = DATE '2026-10-05' where matricula_id = ?", mat);
+        jdbc.update("update mensalidade set vencimento = ? where matricula_id = ?", java.sql.Date.valueOf("2026-10-05"), mat);
         assertThat(enviar("/api/catraca/entrada", "{\"alunoId\":" + id + ",\"unidadeId\":" + casa + "}", 200)
                 .get("liberado").asBoolean()).isTrue(); // 2 dias de atraso: dentro da tolerância
         enviar("/api/catraca/saida", "{\"alunoId\":" + id + "}", 200);
@@ -320,6 +321,59 @@ class PulsoApiTest {
             }
         }
         return -1;
+    }
+
+    // ------------------------------------------------------------------ retenção, tendência, CSV e LGPD
+
+    @Test
+    void contatoDeRetencaoApareceNaFichaENoRanking() throws Exception {
+        JsonNode alto = ler("/api/risco?nivel=ALTO").get(0);
+        long id = alto.get("alunoId").asLong();
+        long semContatoAntes = alto.get("diasDesdeContato").isNull() ? -1 : alto.get("diasDesdeContato").asLong();
+
+        JsonNode ficha = enviar("/api/alunos/" + id + "/contatos",
+                "{\"canal\":\"WHATSAPP\",\"resultado\":\"PROMETEU_VOLTAR\",\"observacao\":\"Volta na segunda\"}", 201);
+        assertThat(ficha.get("contatos").get(0).get("observacao").asText()).isEqualTo("Volta na segunda");
+        assertThat(ficha.get("contatos").get(0).get("riscoNaEpoca").asInt()).isGreaterThanOrEqualTo(55); // nota da época
+
+        for (JsonNode r : ler("/api/risco")) {
+            if (r.get("alunoId").asLong() == id) {
+                assertThat(r.get("diasDesdeContato").asLong()).isZero();
+                assertThat(r.get("ultimoResultado").asText()).isEqualTo("PROMETEU_VOLTAR");
+            }
+        }
+        assertThat(semContatoAntes).isNotEqualTo(0);
+        enviar("/api/alunos/" + id + "/contatos", "{\"canal\":\"TELEGRAMA\",\"resultado\":\"PROMETEU_VOLTAR\"}", 400);
+    }
+
+    @Test
+    void painelTrazTendenciaERetencaoRecuperada() throws Exception {
+        JsonNode k = ler("/api/painel").get("kpis");
+        assertThat(k.get("ativosHa30Dias").asLong()).isGreaterThan(100);
+        assertThat(k.has("variacaoReceitaPercentual")).isTrue();
+        assertThat(k.get("alunosRecuperados").asLong()).isGreaterThan(0);
+        assertThat(k.get("receitaRecuperada").asDouble()).isGreaterThan(0);
+        assertThat(k.get("contatos7Dias").asLong()).isGreaterThan(0);
+    }
+
+    @Test
+    void riscoExportaCsvParaExcelEmPortugues() throws Exception {
+        String csv = mvc.perform(get("/api/risco.csv?nivel=ALTO")).andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("risco-de-evasao.csv")))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).startsWith("\uFEFFAluno;Unidade;Plano;Mensalidade (R$);Nota;Nivel");
+        String[] linhas = csv.split("\r\n");
+        assertThat(linhas.length).isGreaterThan(5);
+        assertThat(linhas[1].split(";").length).isGreaterThanOrEqualTo(9);
+        assertThat(linhas[1]).containsPattern(";\\d+,\\d{2};"); // vírgula decimal
+    }
+
+    @Test
+    void listaMascaraOCpfEAFichaMostraCompleto() throws Exception {
+        JsonNode primeiro = ler("/api/alunos?tamanho=1").get("conteudo").get(0);
+        assertThat(primeiro.get("cpf").asText()).matches("\\*\\*\\*\\.\\d{3}\\.\\d{3}-\\*\\*");
+        String completo = ler("/api/alunos/" + primeiro.get("id").asLong()).get("aluno").get("cpf").asText();
+        assertThat(completo).matches("\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}");
     }
 
     // ------------------------------------------------------------------ laboratório

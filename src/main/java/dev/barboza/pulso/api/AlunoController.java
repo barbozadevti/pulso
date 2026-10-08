@@ -23,6 +23,8 @@ import dev.barboza.pulso.dominio.StatusMatricula;
 import dev.barboza.pulso.servico.AlunoConsultaService;
 import dev.barboza.pulso.servico.AlunoService;
 import dev.barboza.pulso.servico.AlunoService.DadosDoAluno;
+import dev.barboza.pulso.servico.ContatoService;
+import dev.barboza.pulso.api.Dtos.ContatoEntrada;
 import dev.barboza.pulso.servico.Visoes.AvaliacaoVisao;
 import dev.barboza.pulso.servico.Visoes.Ficha;
 import dev.barboza.pulso.servico.Visoes.ResumoDoAluno;
@@ -37,10 +39,12 @@ public class AlunoController {
 
     private final AlunoService alunos;
     private final AlunoConsultaService consulta;
+    private final ContatoService contatos;
 
-    public AlunoController(AlunoService alunos, AlunoConsultaService consulta) {
+    public AlunoController(AlunoService alunos, AlunoConsultaService consulta, ContatoService contatos) {
         this.alunos = alunos;
         this.consulta = consulta;
+        this.contatos = contatos;
     }
 
     @GetMapping("/alunos")
@@ -80,6 +84,13 @@ public class AlunoController {
     ResponseEntity<List<AvaliacaoVisao>> registrar(@PathVariable Long id, @Valid @RequestBody AvaliacaoEntrada e) {
         var a = alunos.registrarAvaliacao(id, e.data(), e.peso(), e.altura(), e.percentualGordura(), e.cinturaCm());
         return ResponseEntity.created(URI.create("/api/avaliacoes/" + a.getId())).body(consulta.ficha(id).avaliacoes());
+    }
+
+    @PostMapping("/alunos/{id}/contatos")
+    @Operation(summary = "Registra uma abordagem de retenção (ligação, WhatsApp ou presencial) e o resultado")
+    ResponseEntity<Ficha> registrarContato(@PathVariable Long id, @Valid @RequestBody ContatoEntrada e) {
+        contatos.registrar(id, e.canal(), e.resultado(), e.observacao());
+        return ResponseEntity.status(201).body(consulta.ficha(id));
     }
 
     @PutMapping("/avaliacoes/{id}")

@@ -24,12 +24,13 @@ export function barrasPorMes(meses) {
   const barra = Math.min(26, larg * 0.32);
   meses.forEach((m, i) => {
     const cx = mE + larg * i + larg / 2;
+    const parcial = i === meses.length - 1; // o mês corrente ainda está sendo recebido: barra mais clara
     [[Number(m.faturado), 's1', -barra - 1, 'Faturado'], [Number(m.recebido), 's3', 1, 'Recebido']].forEach(([v, cor, dx, nome]) => {
       const h0 = Math.max(0, y(0) - y(v));
-      s.append(svg('path', { d: topoArredondado(cx + dx, y(v), barra, h0), style: `fill:var(--${cor})`,
+      s.append(svg('path', { d: topoArredondado(cx + dx, y(v), barra, h0), style: `fill:var(--${cor});${parcial && nome === 'Recebido' ? 'fill-opacity:.55' : ''}`,
         'data-dica': `${nome} em ${mesCurto(m.mes)}: ${reais(v)}` }));
     });
-    s.append(svg('text', { x: cx, y: A - 10, class: 'rotulo-eixo', 'text-anchor': 'middle' }, mesCurto(m.mes)));
+    s.append(svg('text', { x: cx, y: A - 10, class: 'rotulo-eixo', 'text-anchor': 'middle' }, mesCurto(m.mes) + (parcial ? ' (parcial)' : '')));
     const falta = Number(m.faturado) - Number(m.recebido);
     s.append(svg('rect', { x: mE + larg * i, y: mT, width: larg, height: A - mT - mB, fill: 'transparent',
       'data-dica': `${mesCurto(m.mes)}: faturado ${reais(m.faturado)} · recebido ${reais(m.recebido)} · em aberto ${reais(falta)}` }));

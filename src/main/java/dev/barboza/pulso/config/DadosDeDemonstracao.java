@@ -24,6 +24,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import dev.barboza.pulso.dominio.Acesso;
 import dev.barboza.pulso.dominio.Aluno;
 import dev.barboza.pulso.dominio.Aula;
+import dev.barboza.pulso.dominio.CanalDeContato;
+import dev.barboza.pulso.dominio.Contato;
+import dev.barboza.pulso.dominio.ResultadoDoContato;
 import dev.barboza.pulso.dominio.AvaliacaoFisica;
 import dev.barboza.pulso.dominio.Endereco;
 import dev.barboza.pulso.dominio.Instrutor;
@@ -39,6 +42,7 @@ import dev.barboza.pulso.dominio.Unidade;
 import dev.barboza.pulso.repositorio.AcessoRepository;
 import dev.barboza.pulso.repositorio.AlunoRepository;
 import dev.barboza.pulso.repositorio.AulaRepository;
+import dev.barboza.pulso.repositorio.ContatoRepository;
 import dev.barboza.pulso.repositorio.InstrutorRepository;
 import dev.barboza.pulso.repositorio.MatriculaRepository;
 import dev.barboza.pulso.repositorio.ModalidadeRepository;
@@ -87,10 +91,12 @@ public class DadosDeDemonstracao implements ApplicationRunner {
     private final MatriculaRepository matriculas;
     private final AcessoRepository acessos;
     private final AulaRepository aulas;
+    private final ContatoRepository contatos;
 
     public DadosDeDemonstracao(PlatformTransactionManager gerenciador, Clock relogio, UnidadeRepository unidades,
             ModalidadeRepository modalidades, PlanoRepository planos, InstrutorRepository instrutores,
-            AlunoRepository alunos, MatriculaRepository matriculas, AcessoRepository acessos, AulaRepository aulas) {
+            AlunoRepository alunos, MatriculaRepository matriculas, AcessoRepository acessos, AulaRepository aulas,
+            ContatoRepository contatos) {
         this.tx = new TransactionTemplate(gerenciador);
         this.relogio = relogio;
         this.unidades = unidades;
@@ -101,6 +107,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
         this.matriculas = matriculas;
         this.acessos = acessos;
         this.aulas = aulas;
+        this.contatos = contatos;
     }
 
     @Override
@@ -178,7 +185,8 @@ public class DadosDeDemonstracao implements ApplicationRunner {
 
                 Plano plano = sortearPlano(sorteio, essencial, performance, rede, black);
                 double s = sorteio.nextDouble();
-                int diasDeCasa = 10 + sorteio.nextInt(520);
+                // A rede está crescendo: mais matrículas recentes do que antigas (potência 1,4 puxa as datas para perto de hoje).
+                int diasDeCasa = 10 + (int) (520 * Math.pow(sorteio.nextDouble(), 1.4));
                 LocalDate inicio = hoje.minusDays(diasDeCasa);
                 Matricula m = new Matricula(a, plano, inicio);
                 boolean inadimplente = false;
@@ -212,9 +220,43 @@ public class DadosDeDemonstracao implements ApplicationRunner {
             }
         }
 
+        gerarContatos(todosAlunos, vigentePorAluno, agora, sorteio);
+
         // --- agenda das próximas aulas, com reservas e algumas aulas lotadas
         gerarAgenda(unids, instrutoresPorUnidade, Map.of("Musculação", musculacao, "Spinning", spinning,
                 "Funcional", funcional, "Yoga", yoga, "Boxe", boxe), todosAlunos, vigentePorAluno, agora, sorteio);
+    }
+
+    /**
+     * A equipe já abordou parte de quem parou de ir (sem sucesso ainda) e recuperou alguns alunos nas últimas
+     * semanas: é isso que alimenta "retenção" no painel.
+     */
+    private void gerarContatos(List<Aluno> todos, Map<Long, Matricula> vigentes, LocalDateTime agora, Random sorteio) {
+        List<Contato> lote = new ArrayList<>();
+        List<Aluno> regulares = new ArrayList<>();
+        for (Aluno a : todos) {
+            Matricula m = vigentes.get(a.getId());
+            if (m == null || !m.ativa()) {
+                continue;
+            }
+            if (evasores.contains(a.getId())) {
+                if (sorteio.nextDouble() < 0.35) {
+                    lote.add(new Contato(a, sorteio.nextBoolean() ? CanalDeContato.WHATSAPP : CanalDeContato.LIGACAO,
+                            sorteio.nextBoolean() ? ResultadoDoContato.PROMETEU_VOLTAR : ResultadoDoContato.SEM_RESPOSTA,
+                            null, agora.minusDays(1 + sorteio.nextInt(9)), 55 + sorteio.nextInt(30)));
+                }
+            } else {
+                regulares.add(a);
+            }
+        }
+        String[] notas = { "Estava viajando e voltou na semana seguinte", "Trocou o horário e retomou a rotina",
+                "Ofereci aula experimental de Funcional", "Pediu para pausar a cobrança e acabou voltando" };
+        for (int i = 0; i < 7 && i < regulares.size(); i++) {
+            Aluno a = regulares.get(sorteio.nextInt(regulares.size()));
+            lote.add(new Contato(a, CanalDeContato.LIGACAO, ResultadoDoContato.VOLTOU_A_TREINAR,
+                    notas[i % notas.length], agora.minusDays(8 + sorteio.nextInt(18)), 60 + sorteio.nextInt(25)));
+        }
+        contatos.saveAll(lote);
     }
 
     private static final String[] MOTIVOS = { "Mudança de cidade", "Preço", "Falta de tempo", "Lesão",

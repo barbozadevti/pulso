@@ -27,8 +27,13 @@ export async function renderizar(raiz) {
   }
   const sair = estado.aoMudarUnidade(carregar);
 
+  const exportar = h('a', { class: 'botao', href: '#', onclick: (e) => {
+    e.preventDefault();
+    location.href = '/api/risco.csv' + consulta({ unidadeId: estado.unidadeId, nivel });
+  } }, 'Exportar lista (CSV)');
   raiz.append(h('div', { class: 'topo' }, h('div', {}, h('h1', {}, 'Risco de evasão'),
-    h('p', {}, 'Nota de 0 a 100 por aluno: tempo sem treinar, queda de frequência, mensalidade vencida e início de jornada. Cada ponto tem um motivo explicado.'))),
+    h('p', {}, 'Nota de 0 a 100 por aluno: tempo sem treinar, queda de frequência, mensalidade vencida e início de jornada. Cada ponto tem um motivo explicado.')),
+    h('div', { class: 'acoes' }, exportar)),
     resumo, abas, lista);
   await carregar();
   return sair;

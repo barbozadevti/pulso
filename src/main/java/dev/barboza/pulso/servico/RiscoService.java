@@ -15,10 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import dev.barboza.pulso.dominio.Matricula;
 import dev.barboza.pulso.repositorio.AcessoRepository;
+import dev.barboza.pulso.repositorio.ContatoRepository;
 import dev.barboza.pulso.repositorio.MatriculaRepository;
 import dev.barboza.pulso.repositorio.MensalidadeRepository;
 import dev.barboza.pulso.repositorio.Resumos.Atraso;
 import dev.barboza.pulso.repositorio.Resumos.Frequencia;
+import dev.barboza.pulso.repositorio.Resumos.UltimoContato;
 import dev.barboza.pulso.servico.PontuacaoDeRisco.Nivel;
 import dev.barboza.pulso.servico.PontuacaoDeRisco.Resultado;
 import dev.barboza.pulso.servico.PontuacaoDeRisco.Sinais;
@@ -32,19 +34,22 @@ import dev.barboza.pulso.servico.PontuacaoDeRisco.Sinais;
 public class RiscoService {
 
     public record AlunoEmRisco(Long alunoId, String nome, Long unidadeId, String unidade, String plano,
-            BigDecimal valorMensal, int pontos, Nivel nivel, List<String> fatores, Long diasSemTreinar) {
+            BigDecimal valorMensal, int pontos, Nivel nivel, List<String> fatores, Long diasSemTreinar,
+            Long diasDesdeContato, String ultimoResultado) {
     }
 
     private final MatriculaRepository matriculas;
     private final AcessoRepository acessos;
     private final MensalidadeRepository mensalidades;
+    private final ContatoRepository contatos;
     private final Clock relogio;
 
     public RiscoService(MatriculaRepository matriculas, AcessoRepository acessos, MensalidadeRepository mensalidades,
-            Clock relogio) {
+            ContatoRepository contatos, Clock relogio) {
         this.matriculas = matriculas;
         this.acessos = acessos;
         this.mensalidades = mensalidades;
+        this.contatos = contatos;
         this.relogio = relogio;
     }
 
@@ -62,9 +67,13 @@ public class RiscoService {
             atrasos.put(a.alunoId(), a.vencimentoMaisAntigo());
         }
 
+        Map<Long, UltimoContato> ultimos = new HashMap<>();
+        contatos.ultimoDeCadaAluno().forEach(c -> ultimos.put(c.alunoId(), c));
+
         return matriculas.ativasComAlunoEPlano().stream()
                 .filter(m -> unidadeId == null || m.getAluno().getUnidade().getId().equals(unidadeId))
-                .map(m -> avaliar(m, frequencia.get(m.getAluno().getId()), atrasos.get(m.getAluno().getId()), agora))
+                .map(m -> avaliar(m, frequencia.get(m.getAluno().getId()), atrasos.get(m.getAluno().getId()),
+                        ultimos.get(m.getAluno().getId()), agora))
                 .filter(r -> r.pontos() > 0)
                 .sorted(Comparator.comparingInt(AlunoEmRisco::pontos).reversed()
                         .thenComparing(AlunoEmRisco::nome))
@@ -86,7 +95,8 @@ public class RiscoService {
                 ChronoUnit.DAYS.between(inicioDaMatricula, hoje)));
     }
 
-    private AlunoEmRisco avaliar(Matricula m, Frequencia f, LocalDate vencimentoAntigo, LocalDateTime agora) {
+    private AlunoEmRisco avaliar(Matricula m, Frequencia f, LocalDate vencimentoAntigo, UltimoContato contato,
+            LocalDateTime agora) {
         Long diasSemTreinar = f == null ? null : ChronoUnit.DAYS.between(f.ultimaVisita(), agora);
         long atraso = vencimentoAntigo == null ? 0 : ChronoUnit.DAYS.between(vencimentoAntigo, agora.toLocalDate());
         long diasDeCasa = ChronoUnit.DAYS.between(m.getInicio(), agora.toLocalDate());
@@ -95,6 +105,7 @@ public class RiscoService {
         var a = m.getAluno();
         return new AlunoEmRisco(a.getId(), a.getNome(), a.getUnidade().getId(), a.getUnidade().getNome(),
                 m.getPlano().getNome(), m.getPlano().getValorMensal(), r.pontos(), r.nivel(), r.fatores(),
-                diasSemTreinar);
+                diasSemTreinar, contato == null ? null : ChronoUnit.DAYS.between(contato.feitoEm(), agora),
+                contato == null ? null : contato.resultado().name());
     }
 }
