@@ -106,7 +106,7 @@ class PulsoApiTest {
         assertThat(r.size()).isGreaterThan(0);
         int anterior = 101;
         for (JsonNode a : r) {
-            assertThat(a.get("pontos").asInt()).isLessThanOrEqualTo(anterior).isGreaterThanOrEqualTo(60);
+            assertThat(a.get("pontos").asInt()).isLessThanOrEqualTo(anterior).isGreaterThanOrEqualTo(55);
             assertThat(a.get("fatores").size()).isGreaterThan(0);
             anterior = a.get("pontos").asInt();
         }

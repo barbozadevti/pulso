@@ -115,7 +115,11 @@ public class DadosDeDemonstracao implements ApplicationRunner {
 
     private enum Perfil { ASSIDUO, REGULAR, OCASIONAL, EVADINDO }
 
+    /** Alunos que pararam de ir: também não têm aulas reservadas (a demonstração fica coerente). */
+    private final Set<Long> evasores = new java.util.HashSet<>();
+
     private void popular() {
+        evasores.clear();
         Random sorteio = new Random(2026);
         LocalDateTime agora = LocalDateTime.now(relogio);
         LocalDate hoje = agora.toLocalDate();
@@ -179,7 +183,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
                 Matricula m = new Matricula(a, plano, inicio);
                 boolean inadimplente = false;
                 if (s < 0.80) {
-                    inadimplente = sorteio.nextDouble() < 0.09;
+                    inadimplente = sorteio.nextDouble() < 0.065;
                 } else if (s < 0.86) {
                     m.trancar();
                 } else {
@@ -240,8 +244,8 @@ public class DadosDeDemonstracao implements ApplicationRunner {
             }
             geradas.add(m.gerarMensalidade(mes, venc));
         }
-        // Inadimplentes: as 1 a 3 últimas cobranças vencidas ficam sem pagamento.
-        int semPagar = inadimplente ? 1 + sorteio.nextInt(3) : 0;
+        // Inadimplentes: as 1 ou 2 últimas cobranças vencidas ficam sem pagamento.
+        int semPagar = inadimplente ? 1 + sorteio.nextInt(2) : 0;
         int vencidas = (int) geradas.stream().filter(x -> x.getVencimento().isBefore(hoje)).count();
         int indice = 0;
         for (Mensalidade x : geradas) {
@@ -301,7 +305,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
         LocalDate limite = m.getFim() == null ? agora.toLocalDate() : m.getFim();
         Perfil perfil;
         double p = sorteio.nextDouble();
-        if (m.vigente() && p < 0.17) {
+        if (m.vigente() && p < 0.22) {
             perfil = Perfil.EVADINDO;
         } else if (p < 0.45) {
             perfil = Perfil.ASSIDUO;
@@ -310,7 +314,10 @@ public class DadosDeDemonstracao implements ApplicationRunner {
         } else {
             perfil = Perfil.OCASIONAL;
         }
-        int paraDeIr = perfil == Perfil.EVADINDO ? 9 + sorteio.nextInt(30) : -1; // dias atrás em que parou
+        if (perfil == Perfil.EVADINDO) {
+            evasores.add(a.getId());
+        }
+        int paraDeIr = perfil == Perfil.EVADINDO ? 8 + sorteio.nextInt(26) : -1; // dias atrás em que parou
         List<Acesso> lote = new ArrayList<>();
         for (int d = 56; d >= 0; d--) {
             LocalDate dia = agora.toLocalDate().minusDays(d);
@@ -324,7 +331,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
                 case ASSIDUO -> 0.68;
                 case REGULAR -> 0.42;
                 case OCASIONAL -> 0.16;
-                case EVADINDO -> d > paraDeIr + 14 ? 0.55 : 0.22; // vai caindo antes de sumir
+                case EVADINDO -> d > paraDeIr + 14 ? 0.62 : 0.30; // vai caindo antes de sumir
             };
             if (dia.getDayOfWeek().getValue() >= 6) {
                 chance *= 0.55;
@@ -389,7 +396,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
                             break;
                         }
                         Matricula m = vigentes.get(a.getId());
-                        if (m == null || !m.ativa() || !m.getPlano().inclui(mod) || sorteio.nextDouble() > 0.35) {
+                        if (m == null || !m.ativa() || evasores.contains(a.getId()) || !m.getPlano().inclui(mod) || sorteio.nextDouble() > 0.35) {
                             continue;
                         }
                         aula.reservar(a, agora.minusHours(sorteio.nextInt(48)));

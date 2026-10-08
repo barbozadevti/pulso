@@ -23,7 +23,7 @@ class RegrasPuraTest {
     @Test
     void tresSemanasSemTreinarMaisAtrasoDaRiscoAlto() {
         var r = PontuacaoDeRisco.avaliar(new Sinais(21L, 0, 8, 12, 300));
-        assertThat(r.pontos()).isGreaterThanOrEqualTo(60);
+        assertThat(r.pontos()).isGreaterThanOrEqualTo(55);
         assertThat(r.nivel()).isEqualTo(Nivel.ALTO);
         assertThat(r.fatores()).anyMatch(f -> f.contains("21 dias")).anyMatch(f -> f.contains("vencida há 12"));
     }
@@ -38,14 +38,14 @@ class RegrasPuraTest {
     @Test
     void semNenhumaVisitaEmQuatroSemanasContaComoAusenciaLonga() {
         var r = PontuacaoDeRisco.avaliar(new Sinais(null, 0, 0, 0, 300));
-        assertThat(r.pontos()).isEqualTo(40);
+        assertThat(r.pontos()).isEqualTo(45);
         assertThat(r.fatores()).containsExactly("Não treina há mais de 28 dias");
     }
 
     @Test
     void piorCasoFicaDentroDaEscala() {
         var r = PontuacaoDeRisco.avaliar(new Sinais(null, 0, 12, 90, 300));
-        assertThat(r.pontos()).isEqualTo(90).isLessThanOrEqualTo(100);
+        assertThat(r.pontos()).isEqualTo(95).isLessThanOrEqualTo(100);
     }
 
     @Test

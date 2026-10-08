@@ -80,9 +80,11 @@ public class SimuladorDeMovimento {
         if (dentro.isEmpty()) {
             return;
         }
-        // Prefere quem já está há mais de 40 minutos.
-        List<Acesso> candidatos = dentro.stream().filter(a -> a.getEntrada().isBefore(agora.minusMinutes(40))).toList();
-        List<Acesso> base = candidatos.isEmpty() ? dentro : candidatos;
+        // Só sai quem já treinou pelo menos 40 minutos (quem acabou de passar na catraca não some na hora).
+        List<Acesso> base = dentro.stream().filter(a -> a.getEntrada().isBefore(agora.minusMinutes(40))).toList();
+        if (base.isEmpty()) {
+            return;
+        }
         Acesso escolhido = base.get(sorteio.nextInt(base.size()));
         escolhido.sair(agora);
         acessos.save(escolhido);

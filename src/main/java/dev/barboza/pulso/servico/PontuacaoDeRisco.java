@@ -8,7 +8,7 @@ import java.util.List;
  * com os motivos, o que a deixa fácil de testar e de explicar para quem decide.
  *
  * <ul>
- *   <li>até 40 pontos por tempo sem treinar (chega ao máximo com 21 dias);</li>
+ *   <li>até 45 pontos por tempo sem treinar (chega ao máximo com 21 dias);</li>
  *   <li>até 25 por queda de frequência (últimas 2 semanas contra as 2 anteriores);</li>
  *   <li>25 por mensalidade vencida;</li>
  *   <li>10 para quem tem menos de 60 dias de casa e vai pouco (o momento mais frágil).</li>
@@ -34,7 +34,7 @@ public final class PontuacaoDeRisco {
 
         long dias = s.diasSemTreinar() == null ? 60 : s.diasSemTreinar();
         if (dias >= 7) {
-            pontos += (int) Math.min(40, Math.round(dias * 40.0 / 21));
+            pontos += (int) Math.min(45, Math.round(dias * 45.0 / 21));
             fatores.add(s.diasSemTreinar() == null ? "Não treina há mais de 28 dias"
                     : "Sem treinar há " + dias + " dias");
         }
@@ -57,7 +57,7 @@ public final class PontuacaoDeRisco {
         }
 
         pontos = Math.min(100, pontos);
-        Nivel nivel = pontos >= 60 ? Nivel.ALTO : pontos >= 35 ? Nivel.MEDIO : Nivel.BAIXO;
+        Nivel nivel = pontos >= 55 ? Nivel.ALTO : pontos >= 30 ? Nivel.MEDIO : Nivel.BAIXO;
         return new Resultado(pontos, nivel, fatores);
     }
 }

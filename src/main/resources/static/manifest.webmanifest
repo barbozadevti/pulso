@@ -1,0 +1,13 @@
+{
+  "name": "Pulso — gestão de academias",
+  "short_name": "Pulso",
+  "description": "Painel executivo, catraca, aulas e risco de evasão da rede.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f9",
+  "theme_color": "#3b2bd9",
+  "icons": [
+    { "src": "/img/pulso.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
