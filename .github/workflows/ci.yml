@@ -23,5 +23,12 @@ jobs:
           for i in $(seq 1 120); do curl -sf http://localhost:5310/health && break; sleep 1; done
           curl -sf http://localhost:5310/ | grep -q "<title>Pulso</title>"
           curl -sf http://localhost:5310/v3/api-docs | grep -q "Pulso"
-          curl -sf http://localhost:5310/api/painel | grep -q "receitaRecorrente"
-          curl -sf http://localhost:5310/api/laboratorio/n-mais-um | grep -q "INGENUO"
+          # sem login, a API responde 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5310/api/painel)" = "401"
+          # login da diretoria (sessão + CSRF) e chamadas protegidas
+          curl -s -c c.txt -b c.txt http://localhost:5310/api/auth/csrf > /dev/null
+          TOKEN=$(grep XSRF-TOKEN c.txt | awk '{print $7}')
+          curl -sf -c c.txt -b c.txt -H "X-XSRF-TOKEN: $TOKEN" -H 'Content-Type: application/json' \
+            -d '{"login":"diretoria@pulso.dev","senha":"Pulso@2026"}' http://localhost:5310/api/auth/entrar | grep -q DIRETORIA
+          curl -sf -b c.txt http://localhost:5310/api/painel | grep -q "receitaRecorrente"
+          curl -sf -b c.txt http://localhost:5310/api/laboratorio/n-mais-um | grep -q "INGENUO"

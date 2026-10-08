@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.barboza.pulso.rastro.HistoricoSql;
+import dev.barboza.pulso.seguranca.Escopo;
 import dev.barboza.pulso.rastro.HistoricoSql.Registro;
 import dev.barboza.pulso.servico.LaboratorioService;
 import dev.barboza.pulso.servico.LaboratorioService.Comparacao;
@@ -37,9 +38,11 @@ public class GestaoController {
     private final ReferenciaService referencia;
     private final LaboratorioService laboratorio;
     private final HistoricoSql historico;
+    private final Escopo escopo;
 
     public GestaoController(PainelService painel, RiscoService risco, ReferenciaService referencia,
-            LaboratorioService laboratorio, HistoricoSql historico) {
+            LaboratorioService laboratorio, HistoricoSql historico, Escopo escopo) {
+        this.escopo = escopo;
         this.painel = painel;
         this.risco = risco;
         this.referencia = referencia;
@@ -50,14 +53,14 @@ public class GestaoController {
     @GetMapping("/painel")
     @Operation(summary = "Painel executivo da rede (ou de uma unidade): receita, churn, inadimplência, ocupação, risco")
     Painel painel(@RequestParam(required = false) Long unidadeId) {
-        return painel.painel(unidadeId);
+        return painel.painel(escopo.unidade(unidadeId));
     }
 
     @GetMapping("/risco")
     @Operation(summary = "Alunos com risco de evasão, do maior para o menor, com os motivos")
     List<AlunoEmRisco> risco(@RequestParam(required = false) Long unidadeId,
             @RequestParam(required = false) Nivel nivel) {
-        return risco.ranking(unidadeId).stream().filter(r -> nivel == null || r.nivel() == nivel).toList();
+        return risco.ranking(escopo.unidade(unidadeId)).stream().filter(r -> nivel == null || r.nivel() == nivel).toList();
     }
 
     @GetMapping(value = "/risco.csv", produces = "text/csv")
@@ -67,13 +70,14 @@ public class GestaoController {
         return org.springframework.http.ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=\"risco-de-evasao.csv\"")
                 .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
-                .body(RiscoCsv.gerar(risco.ranking(unidadeId).stream()
+                .body(RiscoCsv.gerar(risco.ranking(escopo.unidade(unidadeId)).stream()
                         .filter(r -> nivel == null || r.nivel() == nivel).toList()));
     }
 
     @GetMapping("/unidades")
     List<UnidadeRef> unidades() {
-        return referencia.unidades();
+        Long minha = escopo.unidade(null); // nulo para a diretoria: vê todas
+        return referencia.unidades().stream().filter(u -> minha == null || u.id().equals(minha)).toList();
     }
 
     @GetMapping("/planos")

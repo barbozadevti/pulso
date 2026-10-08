@@ -17,6 +17,7 @@ import java.util.UUID;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -48,6 +49,9 @@ import dev.barboza.pulso.repositorio.MatriculaRepository;
 import dev.barboza.pulso.repositorio.ModalidadeRepository;
 import dev.barboza.pulso.repositorio.PlanoRepository;
 import dev.barboza.pulso.repositorio.UnidadeRepository;
+import dev.barboza.pulso.api.AutenticacaoController;
+import dev.barboza.pulso.seguranca.Usuario;
+import dev.barboza.pulso.seguranca.UsuarioRepository;
 import dev.barboza.pulso.servico.Cpf;
 
 /**
@@ -92,11 +96,13 @@ public class DadosDeDemonstracao implements ApplicationRunner {
     private final AcessoRepository acessos;
     private final AulaRepository aulas;
     private final ContatoRepository contatos;
+    private final UsuarioRepository usuarios;
+    private final PasswordEncoder senhas;
 
     public DadosDeDemonstracao(PlatformTransactionManager gerenciador, Clock relogio, UnidadeRepository unidades,
             ModalidadeRepository modalidades, PlanoRepository planos, InstrutorRepository instrutores,
             AlunoRepository alunos, MatriculaRepository matriculas, AcessoRepository acessos, AulaRepository aulas,
-            ContatoRepository contatos) {
+            ContatoRepository contatos, UsuarioRepository usuarios, PasswordEncoder senhas) {
         this.tx = new TransactionTemplate(gerenciador);
         this.relogio = relogio;
         this.unidades = unidades;
@@ -108,6 +114,8 @@ public class DadosDeDemonstracao implements ApplicationRunner {
         this.acessos = acessos;
         this.aulas = aulas;
         this.contatos = contatos;
+        this.usuarios = usuarios;
+        this.senhas = senhas;
     }
 
     @Override
@@ -221,6 +229,7 @@ public class DadosDeDemonstracao implements ApplicationRunner {
         }
 
         gerarContatos(todosAlunos, vigentePorAluno, agora, sorteio);
+        gerarUsuarios(unids, todosAlunos, vigentePorAluno);
 
         // --- agenda das próximas aulas, com reservas e algumas aulas lotadas
         gerarAgenda(unids, instrutoresPorUnidade, Map.of("Musculação", musculacao, "Spinning", spinning,
@@ -257,6 +266,31 @@ public class DadosDeDemonstracao implements ApplicationRunner {
                     notas[i % notas.length], agora.minusDays(8 + sorteio.nextInt(18)), 60 + sorteio.nextInt(25)));
         }
         contatos.saveAll(lote);
+    }
+
+    /**
+     * Uma conta de cada perfil para quem avalia o projeto. Todas com a mesma senha de demonstração
+     * (dados fictícios). O gerente e a recepção de Vitória só enxergam a unidade deles; o de São Paulo,
+     * a dele; o aluno, só o próprio cadastro.
+     */
+    private void gerarUsuarios(List<Unidade> unids, List<Aluno> todos, Map<Long, Matricula> vigentes) {
+        String senha = AutenticacaoController.SENHA_DE_DEMONSTRACAO;
+        Unidade vitoria = unids.get(0);
+        Unidade saoPaulo = unids.get(1);
+        usuarios.save(new Usuario("diretoria@pulso.dev", "Marina Prado", senhas.encode(senha), dev.barboza.pulso.seguranca.Perfil.DIRETORIA, null, null));
+        usuarios.save(new Usuario("gerente.vitoria@pulso.dev", "Rogério Tavares", senhas.encode(senha), dev.barboza.pulso.seguranca.Perfil.GERENTE,
+                vitoria.getId(), null));
+        usuarios.save(new Usuario("gerente.saopaulo@pulso.dev", "Letícia Moura", senhas.encode(senha), dev.barboza.pulso.seguranca.Perfil.GERENTE,
+                saoPaulo.getId(), null));
+        usuarios.save(new Usuario("recepcao.vitoria@pulso.dev", "Camila Duarte", senhas.encode(senha), dev.barboza.pulso.seguranca.Perfil.RECEPCAO,
+                vitoria.getId(), null));
+        // o aluno é de Vitória, treina com frequência (fora do grupo que parou de ir) e tem plano que inclui as aulas
+        Aluno aluno = todos.stream()
+                .filter(a -> a.getUnidade().getId().equals(vitoria.getId()) && !evasores.contains(a.getId()))
+                .filter(a -> vigentes.get(a.getId()) != null && vigentes.get(a.getId()).ativa()
+                        && vigentes.get(a.getId()).getPlano().getModalidades().size() >= 4) // pode reservar Spinning, Yoga...
+                .findFirst().orElseThrow();
+        usuarios.save(new Usuario(aluno.getEmail(), aluno.getNome(), senhas.encode(senha), dev.barboza.pulso.seguranca.Perfil.ALUNO, null, aluno.getId()));
     }
 
     private static final String[] MOTIVOS = { "Mudança de cidade", "Preço", "Falta de tempo", "Lesão",

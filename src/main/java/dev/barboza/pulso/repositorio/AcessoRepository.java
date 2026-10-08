@@ -29,8 +29,8 @@ public interface AcessoRepository extends JpaRepository<Acesso, Long> {
             """)
     List<Contagem> dentroPorUnidade();
 
-    @Query("select count(a) from Acesso a where a.entrada >= :desde")
-    long entradasDesde(@Param("desde") LocalDateTime desde);
+    @Query("select count(a) from Acesso a where a.entrada >= :desde and (:unidadeId is null or a.unidade.id = :unidadeId)")
+    long contarEntradasDesde(@Param("desde") LocalDateTime desde, @Param("unidadeId") Long unidadeId);
 
     /** Quem está há tempo demais "dentro": a saída nunca foi registrada (esqueceram de passar na catraca). */
     @Query("select a from Acesso a where a.saida is null and a.entrada < :limite")

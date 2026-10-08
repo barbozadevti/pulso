@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import dev.barboza.pulso.seguranca.Excecoes;
 import dev.barboza.pulso.servico.Erros;
 
 /** Todos os erros da API saem como application/problem+json (RFC 9457), em português. */
@@ -25,6 +26,21 @@ public class TratadorDeErros {
     @ExceptionHandler(Erros.RegraDeNegocio.class)
     ProblemDetail regra(Erros.RegraDeNegocio e) {
         return problema(HttpStatus.UNPROCESSABLE_CONTENT, "Operação não permitida", e.getMessage());
+    }
+
+    @ExceptionHandler(Excecoes.CredenciaisInvalidas.class)
+    ProblemDetail credenciais(Excecoes.CredenciaisInvalidas e) {
+        return problema(HttpStatus.UNAUTHORIZED, "Não foi possível entrar", e.getMessage());
+    }
+
+    @ExceptionHandler(Excecoes.UsuarioBloqueado.class)
+    ProblemDetail bloqueado(Excecoes.UsuarioBloqueado e) {
+        return problema(HttpStatus.TOO_MANY_REQUESTS, "Conta bloqueada por alguns minutos", e.getMessage());
+    }
+
+    @ExceptionHandler(Excecoes.AcessoNegado.class)
+    ProblemDetail negado(Excecoes.AcessoNegado e) {
+        return problema(HttpStatus.FORBIDDEN, "Acesso negado", e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

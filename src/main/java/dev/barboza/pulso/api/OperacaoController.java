@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import dev.barboza.pulso.api.Dtos.EntradaNaCatraca;
 import dev.barboza.pulso.api.Dtos.ReservaEntrada;
 import dev.barboza.pulso.api.Dtos.SaidaDaCatraca;
+import dev.barboza.pulso.seguranca.Escopo;
+import dev.barboza.pulso.seguranca.Perfil;
 import dev.barboza.pulso.servico.CatracaService;
 import dev.barboza.pulso.servico.CatracaService.AoVivo;
 import dev.barboza.pulso.servico.CatracaService.Decisao;
@@ -39,8 +41,10 @@ public class OperacaoController {
     private final CatracaService catraca;
     private final ReservaService reservas;
     private final Clock relogio;
+    private final Escopo escopo;
 
-    public OperacaoController(CatracaService catraca, ReservaService reservas, Clock relogio) {
+    public OperacaoController(CatracaService catraca, ReservaService reservas, Clock relogio, Escopo escopo) {
+        this.escopo = escopo;
         this.catraca = catraca;
         this.reservas = reservas;
         this.relogio = relogio;
@@ -49,13 +53,14 @@ public class OperacaoController {
     @PostMapping("/catraca/entrada")
     @Operation(summary = "Tenta liberar a catraca. Sempre responde 200 com liberado=true/false e o motivo.")
     Decisao entrar(@Valid @RequestBody EntradaNaCatraca e) {
+        Long unidadeId = escopo.unidade(e.unidadeId()); // a catraca de uma unidade só libera ali
         if (e.alunoId() != null) {
-            return catraca.entrarPorId(e.alunoId(), e.unidadeId());
+            return catraca.entrarPorId(e.alunoId(), unidadeId);
         }
         if (e.cpf() == null || e.cpf().isBlank()) {
             throw new Erros.RegraDeNegocio("Informe o CPF ou o aluno.");
         }
-        return catraca.entrar(e.cpf(), e.unidadeId());
+        return catraca.entrar(e.cpf(), unidadeId);
     }
 
     @PostMapping("/catraca/saida")
@@ -65,7 +70,7 @@ public class OperacaoController {
 
     @GetMapping("/catraca/ao-vivo")
     AoVivo aoVivo(@RequestParam Long unidadeId) {
-        return catraca.aoVivo(unidadeId);
+        return catraca.aoVivo(escopo.unidade(unidadeId));
     }
 
     @GetMapping("/aulas")
@@ -73,18 +78,29 @@ public class OperacaoController {
     List<AulaVisao> agenda(@RequestParam(required = false) Long unidadeId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dia,
             @RequestParam(required = false) Long alunoId) {
-        return reservas.agenda(unidadeId, dia == null ? LocalDate.now(relogio) : dia, alunoId);
+        var eu = escopo.quem();
+        Long quem = eu.perfil() == Perfil.ALUNO ? eu.alunoId() : alunoId; // o aluno só marca as próprias reservas
+        return reservas.agenda(escopo.unidade(unidadeId), dia == null ? LocalDate.now(relogio) : dia, quem);
     }
 
     @PostMapping("/aulas/{id}/reservas")
     @Operation(summary = "Reserva a vaga; se a aula estiver cheia, entra na fila de espera (bloqueio otimista)")
     ResponseEntity<ResultadoDaReserva> reservar(@PathVariable Long id, @Valid @RequestBody ReservaEntrada e) {
-        return ResponseEntity.status(201).body(reservas.reservar(id, e.alunoId()));
+        var eu = escopo.quem();
+        Long alunoId = e.alunoId();
+        if (eu.perfil() == Perfil.ALUNO) {
+            alunoId = eu.alunoId(); // reserva sempre em nome de quem está logado
+        } else {
+            escopo.aluno(alunoId);
+            escopo.aula(id);
+        }
+        return ResponseEntity.status(201).body(reservas.reservar(id, alunoId));
     }
 
     @DeleteMapping("/reservas/{id}")
     @Operation(summary = "Cancela a reserva e promove o primeiro da fila de espera")
     Cancelamento cancelar(@PathVariable Long id) {
+        escopo.reserva(id);
         return reservas.cancelar(id);
     }
 }

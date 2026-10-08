@@ -2,6 +2,7 @@
 import { h, icone, limpar, reais, data, dataCurta, dataHora, iniciais, modal, toast, esqueleto, erroNaTela, hojeISO } from './ui.js';
 import { api, referencias } from './api.js';
 import { barrasSemanais, linha } from './charts.js';
+import { estado } from './estado.js';
 import { rotuloNivel } from './painel.js';
 import { registrarContato, CANAIS, RESULTADOS } from './contato.js';
 
@@ -15,7 +16,7 @@ export async function renderizar(raiz, { id }) {
     const a = f.aluno;
     const vigente = f.matriculas.find((m) => m.status !== 'CANCELADA');
     limpar(raiz).append(
-      h('a', { class: 'botao pequeno', href: '#/alunos', style: 'margin-bottom:14px;display:inline-flex' }, icone('voltar', 16), 'Alunos'),
+      estado.eh('ALUNO') ? null : h('a', { class: 'botao pequeno', href: '#/alunos', style: 'margin-bottom:14px;display:inline-flex' }, icone('voltar', 16), 'Alunos'),
       cabecalho(f, vigente),
       h('div', { class: 'grade-2', style: 'margin-top:16px' },
         h('div', { class: 'pilha' }, blocoRisco(f.risco, vigente), blocoRetencao(f), blocoFrequencia(f.frequencia), blocoReservas(f.reservas)),
@@ -30,8 +31,10 @@ export async function renderizar(raiz, { id }) {
   function cabecalho(f, vigente) {
     const a = f.aluno;
     const botoes = [];
-    if (!vigente) botoes.push(h('button', { class: 'botao primario pequeno', type: 'button', onclick: () => matricular(a) }, 'Matricular'));
-    else {
+    const gestao = estado.eh('DIRETORIA', 'GERENTE');
+    const equipe = estado.eh('DIRETORIA', 'GERENTE', 'RECEPCAO');
+    if (!vigente && equipe) botoes.push(h('button', { class: 'botao primario pequeno', type: 'button', onclick: () => matricular(a) }, 'Matricular'));
+    else if (gestao) {
       botoes.push(h('button', { class: 'botao pequeno', type: 'button', onclick: () => trocarPlano(vigente) }, 'Mudar plano'));
       botoes.push(vigente.status === 'ATIVA' ? acao('Trancar', `/api/matriculas/${vigente.id}/trancar`, {}, 'Matrícula trancada.')
         : acao('Reativar', `/api/matriculas/${vigente.id}/reativar`, {}, 'Matrícula reativada.'));
@@ -86,13 +89,14 @@ export async function renderizar(raiz, { id }) {
   }
 
   function blocoRisco(r, vigente) {
-    if (!vigente) return null;
+    if (!vigente || !estado.eh('DIRETORIA', 'GERENTE')) return null;
     if (!r) return h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Risco de evasão')), h('p', { class: 'mudo' }, 'Matrícula trancada: sem avaliação de risco.'));
     return h('section', { class: 'cartao' }, h('header', {}, h('h2', {}, 'Risco de evasão'), h('span', { class: 'risco ' + r.nivel }, `${r.pontos} · ${rotuloNivel(r.nivel)}`)),
       r.fatores.length ? h('div', { class: 'fatores' }, r.fatores.map((x) => h('span', { class: 'selo' }, x))) : h('p', { class: 'suave' }, 'Frequência e pagamentos em dia. Nenhum sinal de risco.'));
   }
 
   function blocoRetencao(f) {
+    if (!estado.eh('DIRETORIA', 'GERENTE')) return null;
     return h('section', { class: 'cartao' },
       h('header', {}, h('h2', {}, 'Retenção'), h('button', { class: 'botao pequeno primario', type: 'button',
         onclick: () => registrarContato({ alunoId: id, nome: f.aluno.nome, aoSalvar: carregar }) }, icone('mais', 16), 'Registrar contato')),
@@ -130,7 +134,7 @@ export async function renderizar(raiz, { id }) {
         h('tbody', {}, ms.map((m) => h('tr', {}, h('td', {}, dataCurta(m.competencia) + ' ' + m.competencia.slice(0, 4)), h('td', { class: 'num' }, reais(m.valor)),
           h('td', {}, h('span', { class: 'selo ' + rotulo[m.situacao][0] }, rotulo[m.situacao][1] + (m.diasDeAtraso ? ` · ${m.diasDeAtraso}d` : '')),
             m.forma ? h('div', { class: 'mudo', style: 'font-size:.75rem;margin-top:3px' }, `${m.forma.toLowerCase()} · ${m.referencia}`) : h('div', { class: 'mudo', style: 'font-size:.75rem;margin-top:3px' }, `vence ${data(m.vencimento)}`)),
-          h('td', { class: 'dir' }, m.situacao === 'PAGA' ? null : h('button', { class: 'botao pequeno primario', onclick: () => pagar(m) }, 'Receber'))))))) : h('p', { class: 'mudo' }, 'Sem mensalidades.'));
+          h('td', { class: 'dir' }, m.situacao === 'PAGA' || estado.eh('ALUNO') ? null : h('button', { class: 'botao pequeno primario', onclick: () => pagar(m) }, 'Receber'))))))) : h('p', { class: 'mudo' }, 'Sem mensalidades.'));
   }
 
   function pagar(m) {
@@ -157,7 +161,7 @@ export async function renderizar(raiz, { id }) {
     const delta = (campo, un) => (av.length > 1 && ult[campo] != null && prim[campo] != null)
       ? `${(ult[campo] - prim[campo] > 0 ? '+' : '')}${(ult[campo] - prim[campo]).toFixed(1).replace('.', ',')} ${un} desde ${dataCurta(prim.data)}` : '';
     return h('section', { class: 'cartao', style: 'margin-top:16px' },
-      h('header', {}, h('h2', {}, 'Avaliações físicas'), h('button', { class: 'botao pequeno primario', onclick: () => novaAvaliacao() }, icone('mais', 16), 'Nova avaliação')),
+      h('header', {}, h('h2', {}, 'Avaliações físicas'), estado.eh('ALUNO') ? null : h('button', { class: 'botao pequeno primario', onclick: () => novaAvaliacao() }, icone('mais', 16), 'Nova avaliação')),
       av.length ? h('div', { class: 'grade-3' },
         h('div', {}, h('div', { class: 'linha-dados', style: 'margin:0 0 6px' }, dado('Peso', `${ult.peso.toFixed(1).replace('.', ',')} kg`), dado('IMC', `${String(ult.imc).replace('.', ',')} · ${ult.faixa}`)),
           h('p', { class: 'suave' }, delta('peso', 'kg')), linha(av.map((x) => ({ rotulo: dataCurta(x.data), y: x.peso })), { cor: 's1', unidade: 'kg' })),

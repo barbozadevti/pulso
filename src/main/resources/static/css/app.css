@@ -243,6 +243,23 @@ a.item:hover { background: var(--superficie-2); text-decoration: none; border-ra
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @media print { .lateral, .tabbar, .chip-sql, .gaveta { display: none !important; } .app { display: block; } }
 
+/* ---------- login e usuário ---------- */
+.login { min-height: 100dvh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 20px; padding: 24px 16px; background: radial-gradient(1200px 500px at 50% -10%, var(--marca-suave), transparent); }
+.login-cartao { width: min(420px, 100%); background: var(--superficie); border: 1px solid var(--linha); border-radius: 22px; padding: 26px; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 18px; }
+.login-cartao.demo { gap: 14px; }
+.login-marca { display: flex; align-items: center; gap: 14px; } .login-marca h1 { font-size: 1.7rem; } .login-marca .logo { width: 48px; height: 48px; border-radius: 14px; } .login-marca .logo svg { width: 32px; height: 32px; }
+.login-form { display: flex; flex-direction: column; gap: 14px; }
+.login-erro { min-height: 1.3em; color: var(--critico); font-weight: 600; font-size: .9rem; }
+.contas-demo { display: flex; flex-direction: column; gap: 8px; }
+.conta { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--linha); background: var(--superficie); cursor: pointer; }
+.conta:hover { background: var(--superficie-2); border-color: var(--marca); }
+.conta-icone { width: 38px; height: 38px; border-radius: 11px; background: var(--marca-suave); color: var(--marca); display: grid; place-items: center; flex: none; }
+.conta-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; } .conta-texto small { font-size: .78rem; color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; }
+.usuario-caixa { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: var(--superficie-2); }
+.usuario-caixa .avatar { width: 36px; height: 36px; font-size: .78rem; } .usuario-caixa div { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.usuario-caixa strong { font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .usuario-caixa span { font-size: .74rem; color: var(--tinta-3); }
+.unidade-fixa { display: flex; flex-direction: column; gap: 2px; font-size: .86rem; } .unidade-fixa small { color: var(--tinta-3); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; font-size: .68rem; }
+
 /* ---------- celular pequeno (fica no fim para vencer as regras base) ---------- */
 @media (max-width: 560px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

@@ -14,7 +14,6 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import dev.barboza.pulso.dominio.StatusMatricula;
 import dev.barboza.pulso.dominio.Unidade;
 import dev.barboza.pulso.dominio.Matricula;
 import dev.barboza.pulso.repositorio.AcessoRepository;
@@ -109,8 +108,8 @@ public class PainelService {
 
         long ativosRede = escopo.stream().mapToLong(UnidadeVisao::ativos).sum();
         BigDecimal mrr = escopo.stream().map(UnidadeVisao::receita).reduce(BigDecimal.ZERO, BigDecimal::add);
-        long cancelados = matriculas.countByStatusAndFimGreaterThanEqual(StatusMatricula.CANCELADA, hoje.minusDays(30));
-        BigDecimal atraso = mensalidades.valorEmAtraso(hoje);
+        long cancelados = matriculas.canceladasDesde(hoje.minusDays(30), unidadeId);
+        BigDecimal atraso = mensalidades.valorEmAtraso(hoje, unidadeId);
         long dentroAgora = escopo.stream().mapToLong(UnidadeVisao::dentro).sum();
         long capacidade = escopo.stream().mapToLong(UnidadeVisao::capacidade).sum();
 
@@ -120,12 +119,12 @@ public class PainelService {
         BigDecimal receitaRecuperada = recuperados.stream().map(m -> m.getPlano().getValorMensal())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Kpis kpis = new Kpis(ativosRede, matriculas.countByStatus(StatusMatricula.TRANCADA), mrr,
-                matriculas.countByInicioGreaterThanEqual(hoje.minusDays(30)), cancelados,
-                percentual(cancelados, ativosRede + cancelados), mensalidades.alunosInadimplentes(hoje), atraso,
+        Kpis kpis = new Kpis(ativosRede, matriculas.trancadas(unidadeId), mrr,
+                matriculas.novosDesde(hoje.minusDays(30), unidadeId), cancelados,
+                percentual(cancelados, ativosRede + cancelados), mensalidades.alunosInadimplentes(hoje, unidadeId), atraso,
                 mrr.signum() == 0 ? 0 : atraso.multiply(BigDecimal.valueOf(100)).divide(mrr, 1, RoundingMode.HALF_UP)
                         .doubleValue(),
-                acessos.entradasDesde(hoje.atStartOfDay()), dentroAgora, capacidade, variacao(unidadeId, hoje),
+                acessos.contarEntradasDesde(hoje.atStartOfDay(), unidadeId), dentroAgora, capacidade, variacao(unidadeId, hoje),
                 matriculas.ativasEm(hoje.minusDays(30), unidadeId), contatos.contatosDesde(agora.minusDays(7), unidadeId),
                 recuperados.size(), receitaRecuperada);
 
@@ -133,16 +132,16 @@ public class PainelService {
         BigDecimal receitaEmRisco = altos.stream().map(AlunoEmRisco::valorMensal).reduce(BigDecimal.ZERO,
                 BigDecimal::add);
 
-        List<PlanoVisao> planos = matriculas.ativasPorPlano().stream()
+        List<PlanoVisao> planos = matriculas.ativasPorPlano(unidadeId).stream()
                 .map((PorPlano p) -> new PlanoVisao(p.plano(), p.quantidade(), p.valor())).toList();
 
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM");
-        List<MesVisao> receita = mensalidades.faturamentoPorMes(hoje.withDayOfMonth(1).minusMonths(5)).stream()
+        List<MesVisao> receita = mensalidades.faturamentoPorMes(hoje.withDayOfMonth(1).minusMonths(5), unidadeId).stream()
                 .map((PorMes m) -> new MesVisao(m.competencia().format(fmt), m.faturado(),
                         m.faturado().subtract(m.pendente())))
                 .toList();
 
-        return new Painel(agora, kpis, visoes, planos, receita, mapaDeCalor(agora.minusDays(28), unidadeId),
+        return new Painel(agora, kpis, escopo, planos, receita, mapaDeCalor(agora.minusDays(28), unidadeId),
                 rankingEscopo.stream().limit(8).toList(), receitaEmRisco, altos.size(),
                 reservas.conflitosResolvidos());
     }

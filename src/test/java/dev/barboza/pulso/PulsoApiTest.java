@@ -29,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(RelogioFixo.class)
+@Import({ RelogioFixo.class, Contas.ComoDiretoria.class })
 @Transactional
 class PulsoApiTest {
 

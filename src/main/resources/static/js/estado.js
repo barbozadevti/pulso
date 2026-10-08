@@ -10,6 +10,9 @@ function gravar(chave, valor) {
 const ouvintes = new Set();
 
 export const estado = {
+  sessao: null,
+  /** O perfil logado está entre estes? */
+  eh(...perfis) { return !!this.sessao && perfis.includes(this.sessao.perfil); },
   unidadeId: ler('pulso.unidade', '') || '',
   tema: ler('pulso.tema', ''),
   definirUnidade(id) {

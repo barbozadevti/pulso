@@ -8,7 +8,7 @@ export async function renderizar(raiz) {
   const hoje = hojeISO();
   let dia = hoje;
   let unidadeId = estado.unidadeId || String(unidades[0].id);
-  let aluno = null; // { id, nome }
+  let aluno = estado.eh('ALUNO') ? { id: estado.sessao.alunoId, nome: estado.sessao.nome } : null; // { id, nome }
 
   const grade = h('div', { class: 'aulas' }, esqueleto(3));
   const diasEl = h('div', { class: 'dias', role: 'group', 'aria-label': 'Dia' });
@@ -79,7 +79,9 @@ export async function renderizar(raiz) {
 
   raiz.append(
     h('div', { class: 'topo' }, h('div', {}, h('h1', {}, 'Aulas'), h('p', {}, 'Cheia? Entra na fila. Alguém cancelou? O primeiro da fila é promovido automaticamente.')), sel),
-    h('div', { class: 'filtros' }, h('div', { class: 'busca' }, icone('busca', 18), buscaAluno), quem), resultados, diasEl, grade);
+    estado.eh('ALUNO') ? h('p', { class: 'selo marca', style: 'margin-bottom:14px' }, `Reservando como ${aluno.nome}`)
+      : h('div', { class: 'filtros' }, h('div', { class: 'busca' }, icone('busca', 18), buscaAluno), quem),
+    resultados, diasEl, grade);
   desenharDias();
   await carregar();
 }

@@ -1,8 +1,10 @@
 // "Por dentro do JPA": o chip mostra quantas consultas SQL a última chamada custou; a gaveta lista o SQL real.
 import { h, icone, limpar } from './ui.js';
 import { api, aoMedir, ultima } from './api.js';
+import { estado } from './estado.js';
 
 export function iniciarRastro() {
+  if (!estado.eh('DIRETORIA', 'GERENTE')) return; // o SQL interno é só da gestão
   const chip = h('button', { class: 'chip-sql', type: 'button', 'aria-label': 'Abrir o SQL gerado pelas últimas chamadas' },
     icone('bolt', 16), h('span', {}, 'SQL ', h('b', { id: 'chip-n' }, '–')), h('span', { id: 'chip-ms' }, ''));
   const corpo = h('div', { class: 'corpo' });

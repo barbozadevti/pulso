@@ -55,9 +55,10 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
     @Query("""
             select new dev.barboza.pulso.repositorio.Resumos$PorPlano(p.nome, count(m), coalesce(sum(p.valorMensal), 0))
             from Matricula m join m.plano p
-            where m.status = 'ATIVA' group by p.nome order by count(m) desc
+            where m.status = 'ATIVA' and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)
+            group by p.nome order by count(m) desc
             """)
-    List<PorPlano> ativasPorPlano();
+    List<PorPlano> ativasPorPlano(@Param("unidadeId") Long unidadeId);
 
     /** Receita recorrente de uma data passada (matrículas vigentes naquele dia), para a tendência do painel. */
     @Query("""
@@ -74,17 +75,32 @@ public interface MatriculaRepository extends JpaRepository<Matricula, Long> {
             """)
     long ativasEm(@Param("data") LocalDate data, @Param("unidadeId") Long unidadeId);
 
-    long countByInicioGreaterThanEqual(LocalDate desde);
+    @Query("select count(m) from Matricula m where m.inicio >= :desde and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)")
+    long novosDesde(@Param("desde") LocalDate desde, @Param("unidadeId") Long unidadeId);
 
-    long countByStatusAndFimGreaterThanEqual(StatusMatricula status, LocalDate desde);
+    @Query("""
+            select count(m) from Matricula m
+            where m.status = 'CANCELADA' and m.fim >= :desde and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)
+            """)
+    long canceladasDesde(@Param("desde") LocalDate desde, @Param("unidadeId") Long unidadeId);
+
+    @Query("select count(m) from Matricula m where m.status = 'TRANCADA' and (:unidadeId is null or m.aluno.unidade.id = :unidadeId)")
+    long trancadas(@Param("unidadeId") Long unidadeId);
 
     /** JPQL navegando pela associação (a consulta do desafio original): matrículas por bairro do aluno. */
     @Query("""
             select m from Matricula m join fetch m.aluno a join fetch m.plano
-            where lower(a.endereco.bairro) = lower(:bairro)
+            where lower(a.endereco.bairro) = lower(:bairro) and (:unidadeId is null or a.unidade.id = :unidadeId)
             order by a.nome
             """)
-    List<Matricula> buscarPorBairroDoAluno(@Param("bairro") String bairro);
+    List<Matricula> buscarPorBairroDoAluno(@Param("bairro") String bairro, @Param("unidadeId") Long unidadeId);
+
+    @Query("""
+            select m from Matricula m join fetch m.aluno a join fetch m.plano
+            where m.status = 'ATIVA' and (:unidadeId is null or a.unidade.id = :unidadeId)
+            order by a.nome
+            """)
+    List<Matricula> ativasDaUnidade(@Param("unidadeId") Long unidadeId);
 
     // --- Laboratório: quatro jeitos de listar a mesma coisa, com custos de SQL bem diferentes.
 

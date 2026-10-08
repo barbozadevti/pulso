@@ -132,9 +132,9 @@ public class MatriculaService {
     }
 
     @Transactional(readOnly = true)
-    public List<Atrasada> atrasadas() {
+    public List<Atrasada> atrasadas(Long unidadeId) {
         LocalDate hoje = LocalDate.now(relogio);
-        return mensalidades.atrasadas(hoje).stream()
+        return mensalidades.atrasadas(hoje, unidadeId).stream()
                 .map(m -> new Atrasada(m.getId(), m.getMatricula().getAluno().getId(),
                         m.getMatricula().getAluno().getNome(), m.getMatricula().getPlano().getNome(),
                         m.getCompetencia(), m.getVencimento(), m.getValor(), m.diasDeAtraso(hoje)))
@@ -143,9 +143,9 @@ public class MatriculaService {
 
     /** A consulta do desafio original (matrículas por bairro do aluno; sem bairro, as ativas), agora sobre o modelo completo. */
     @Transactional(readOnly = true)
-    public List<LinhaDaMatricula> porBairro(String bairro) {
-        List<Matricula> lista = bairro == null || bairro.isBlank() ? matriculas.ativasComAlunoEPlano()
-                : matriculas.buscarPorBairroDoAluno(bairro);
+    public List<LinhaDaMatricula> porBairro(String bairro, Long unidadeId) {
+        List<Matricula> lista = bairro == null || bairro.isBlank() ? matriculas.ativasDaUnidade(unidadeId)
+                : matriculas.buscarPorBairroDoAluno(bairro, unidadeId);
         return lista.stream().map(m -> new LinhaDaMatricula(m.getId(), m.getAluno().getId(), m.getAluno().getNome(),
                 m.getAluno().getEndereco().getBairro(), m.getPlano().getNome(), m.getInicio(), m.getStatus().name()))
                 .toList();

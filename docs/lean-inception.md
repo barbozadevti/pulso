@@ -59,7 +59,8 @@ Workshop de alinhamento feito antes do código para decidir **o que construir pr
 - **Onda 1 · fundamentos:** modelo de dados no JPA, CRUD de alunos, matrícula, mensalidades, avaliações. *Critério de pronto: dá para matricular e cobrar um aluno de ponta a ponta.*
 - **Onda 2 · inteligência e operação:** catraca, painel executivo e risco de evasão. *Critério de pronto: a diretora responde "quanto de receita está em risco e onde?" em dez segundos.*
 - **Onda 3 · experiência e prova técnica:** aulas com fila, laboratório de JPA, celular. *Critério de pronto: 40 threads disputando 3 vagas sem overbooking, comprovado por teste.*
-- **Próximas ondas:** login com perfis (diretoria, gerente, recepção, aluno), cobrança recorrente real, notificações para quem está em risco, multi-tenant por rede.
+- **Onda 4 · acesso (entregue):** login com sessão e CSRF, quatro perfis (diretoria, gerente, recepção, aluno), gerente e recepção presos à unidade, aluno só no próprio cadastro, bloqueio por tentativas. *Critério de pronto: o gerente de Vitória não alcança nenhum dado de São Paulo, nem pela API.*
+- **Próximas ondas:** troca e recuperação de senha, cobrança recorrente real, notificações para quem está em risco, multi-tenant por rede.
 
 ## Canvas do MVP
 

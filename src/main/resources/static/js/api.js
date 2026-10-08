@@ -12,8 +12,17 @@ export class ErroDaApi extends Error {
   }
 }
 
+function tokenCsrf() {
+  const m = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 async function chamar(metodo, caminho, corpo) {
-  const opcoes = { method: metodo, headers: { Accept: 'application/json' } };
+  const opcoes = { method: metodo, headers: { Accept: 'application/json' }, credentials: 'same-origin' };
+  if (metodo !== 'GET') {
+    const t = tokenCsrf();
+    if (t) opcoes.headers['X-XSRF-TOKEN'] = t;
+  }
   if (corpo !== undefined) {
     opcoes.headers['Content-Type'] = 'application/json';
     opcoes.body = JSON.stringify(corpo);
@@ -33,6 +42,7 @@ async function chamar(metodo, caminho, corpo) {
   if (resp.status === 204) return null;
   const texto = await resp.text();
   const json = texto ? JSON.parse(texto) : null;
+  if (resp.status === 401 && !caminho.startsWith('/api/auth/')) window.dispatchEvent(new Event('sessao-expirada'));
   if (!resp.ok) throw new ErroDaApi(resp.status, json?.title || 'Erro', json?.detail || json?.title);
   return json;
 }
